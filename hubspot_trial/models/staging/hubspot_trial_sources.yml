@@ -1,0 +1,129 @@
+version: 2
+
+sources:
+  - name: raw
+    database: HUBSPOT_TRIAL_TABLES
+    schema: PUBLIC
+
+    tables:
+      - name: accounts
+        description: "Source table containing all customer account details."
+        columns:
+          - name: id
+            description: "Unique identifier for the account."
+            tests:
+              - unique
+              - not_null
+
+          - name: name
+            description: "Name of Company"
+
+          - name: signup_date
+            description: "Date account signed up with Hubspot"
+            tests:
+              - not_null
+
+          - name: country
+            description: "Country of origin for Hubspot account"
+
+          - name: vertical
+            description: "Primary business vertical of company"
+
+          - name: nps
+            description: "Customer loyalty and satisfaction measurement taken from asking customers how likely they are to recommend Hubspot to others on a scale of 0-10"
+
+      - name: subscriptions
+        description: "When an account purchases one of Hubspot’s products it is recorded here. Since Hubspot is a freemium product, not all active accounts will have a subscription in this table."
+        columns:
+          - name: account_id
+            description: "Id of account that purchased product. Can be joined with the accounts table."
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'accounts')
+                  field: id
+
+          - name: start_date
+            description: "Date subscription began"
+            tests:
+              - not_null
+
+          - name: cancel_date
+            description: "Date the subscription was canceled. Column will be null if the subscription is still active."
+
+          - name: product
+            description: "Marketing Hub, Sales Hub, Service Hub, CMS Hub, Operations Hub"
+
+          - name: tier
+            description: "Trial, Starter, Professional, or Enterprise"
+
+          - name: monthly_cost
+            description: "Cost of monthly subscription for product"
+
+          - name: touchless_conversion
+            description: "Subscription was generated without any sales rep involvement. (T/F)"
+
+      - name: usage_events
+        description: "Used to log interactions with the Hubspot product. Any time a user performs an action in any feature within Hubspot, it is recorded in this table."
+        columns:
+          - name: account_id
+            description: "Id of the account that performed event. Can be joined with the accounts table."
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'accounts')
+                  field: id
+
+          - name: user_id
+            description: "Specific user in account that performed event"
+
+          - name: event_id
+            description: "Unique identifier for usage event"
+            tests:
+              - unique
+              - not_null
+
+          - name: event_time
+            description: "Timestamp usage event occurred."
+            tests:
+              - not_null
+
+          - name: product
+            description: "The overall product where the event occurred. Ex. Marketing Hub, Sales Hub, Service Hub, CMS Hub & Operations Hub"
+
+          - name: event_type
+            description: "Type of event ('Usage' or 'Activation')."
+
+      - name: object_counts_daily
+        description: "Daily snapshot of the total number of various Hubspot features that exist in each Hubspot account."
+        columns:
+          - name: date
+            description: "Date of snapshot. As long as an account is active, it will have a row recorded in this table each day."
+            tests:
+              - not_null
+
+          - name: account_id
+            description: "Id of account. Can be joined with the accounts table"
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'accounts')
+                  field: id
+
+          - name: total_contacts
+            description: "Total number of contacts in CRM for the account at end of day."
+
+          - name: total_lists
+            description: "Total number of lists in CRM for the account at end of day."
+
+          - name: total_deals
+            description: "Total number of deals in the Sales Hub product for the account at end of day."
+
+          - name: total_landing_pages
+            description: "Total number of landing pages in Marketing Hub product for account at end of day."
+
+          - name: total_blogs
+            description: "Total number of blog pages in Marketing Hub product for account at end of day."
+
+          - name: total_workflows
+            description: "Total number of workflows in automation tool for account at end of day."

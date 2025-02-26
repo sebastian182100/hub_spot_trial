@@ -1,0 +1,218 @@
+version: 2
+
+models:
+  - name: dim_tiers
+    description: "Dimension table tracking subscription tiers with SCD-2 logic"
+    columns:
+      - name: tier_id
+        description: "Surrogate primary key for the tier"
+        tests:
+          - unique
+          - not_null
+
+      - name: tier_name
+        description: "Name of the subscription tier (e.g., Starter, Professional, Enterprise)"
+        tests:
+          - not_null
+
+      - name: tier_price
+        description: "Monthly cost of the subscription tier"
+        tests:
+          - not_null
+
+      - name: start_date_id
+        description: "Foreign key to dim_dates.date_id marking when the tier version became active"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_dates')
+              field: date_id
+
+      - name: end_date_id
+        description: "Foreign key to dim_dates.date_id marking when the tier version became inactive (NULL if active)"
+        tests:
+          - relationships:
+              to: ref('dim_dates')
+              field: date_id
+          - not_null:
+              where: "end_date_id IS NOT NULL"
+
+      - name: is_current
+        description: "Boolean flag indicating if this is the active version of the tier"
+        tests:
+          - not_null
+
+  - name: dim_accounts
+    description: "Slowly Changing Dimension (SCD-2) table tracking account history"
+    columns:
+      - name: account_id
+        description: "Business Key (Natural Key) for the account"
+        tests:
+          - unique
+          - not_null
+
+      - name: name
+        description: "Account name"
+        tests:
+          - not_null
+
+      - name: signup_date_id
+        description: "FK to dim_dates.date_id for account signup date"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_dates')
+              field: date_id
+
+      - name: country
+        description: "Account country"
+        tests:
+          - not_null
+
+      - name: vertical
+        description: "Industry category"
+        tests:
+          - not_null
+
+      - name: nps
+        description: "Net Promoter Score (NPS)"
+        tests:
+          - not_null
+
+      - name: start_date_id
+        description: "FK to dim_dates.date_id indicating when this version became active"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_dates')
+              field: date_id
+
+      - name: end_date_id
+        description: "FK to dim_dates.date_id indicating when this version became inactive (NULL if active)"
+        tests:
+          - relationships:
+              to: ref('dim_dates')
+              field: date_id
+          - not_null:
+              where: "end_date_id IS NOT NULL"
+
+      - name: is_current
+        description: "Boolean flag indicating if this is the active version"
+        tests:
+          - not_null
+
+  - name: dim_products
+    columns:
+      - name: product_id
+        description: "Surrogate key for the product"
+        tests:
+          - unique
+          - not_null
+
+      - name: product_name
+        description: "Name of the product"
+        tests:
+          - not_null
+
+  - name: fact_financials
+    description: "Fact table capturing monthly financial data with revenue and churn tracking."
+    columns:
+      - name: account_id
+        description: "Foreign Key to the account dimension."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_accounts')
+              field: account_id
+
+      - name: product_id
+        description: "Foreign Key to the product dimension."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_products')
+              field: product_id
+
+      - name: tier_id
+        description: "Foreign Key to the tier dimension."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_tiers')
+              field: tier_id
+
+      - name: financial_month
+        description: "Financial month, used for monthly aggregation of revenue."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_dates')
+              field: full_date
+
+      - name: total_revenue
+        description: "Total revenue for the month, based on the subscription and cancellation dates."
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: active_subscriptions
+        description: "The count of active subscriptions for the month."
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: churned_subscriptions
+        description: "The count of churned subscriptions for the month."
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+  - name: fact_product_usage
+    description: "Fact table capturing daily product usage, activations, and user activity"
+    columns:
+      - name: account_id
+        description: "Foreign Key to the account dimension."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_accounts')
+              field: account_id
+
+      - name: product_id
+        description: "Foreign Key to the product dimension."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_products')
+              field: product_id
+
+      - name: usage_date_day
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_dates')
+              field: full_date
+
+      - name: total_usage_events
+        description: "The total number of usage events for a product on a given day."
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: total_activations
+        description: "The total number of activations for a product on a given day."
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: active_users
+        description: "The number of unique active users for a product on a given day."
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
